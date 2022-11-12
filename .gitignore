@@ -1,0 +1,9 @@
+# Generated build directory
+build/
+
+# Generated artifacts
+*.iso
+iso/boot/kernel
+
+# IDE from JetBrains
+.idea/
