@@ -9,6 +9,10 @@ SUBTITLE="\e[1m"
 COMMAND="\e[32m"
 CLEAN="\e[0m"
 
+# Define the versions
+BINUTILS_VERSION=2.39
+GCC_VERSION=12.2.0
+
 function pushd ()
 {
     command pushd "$@" > /dev/null
@@ -41,8 +45,67 @@ function check_system ()
 function setup_system ()
 {
     echo "Going to setup the local development environment"
-    # TODO
-    echo "Done setting up the local development environment. Please reboot your system!"
+
+#    # Check if the cross compiler already exists
+#    if [ -d compiler ]; then
+#        echo "The cross compiler already exists"
+#        exit 0
+#    fi
+
+    # Install the required packages
+    sudo apt-get install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
+
+    # Create the directories
+    mkdir -p compiler
+    mkdir -p compiler/source
+    mkdir -p compiler/toolchain
+
+    # Define the variables
+    export PREFIX=$(readlink -f compiler/toolchain)
+    export TARGET=i686-elf
+    export PATH="$PREFIX/bin:$PATH"
+
+    # Download and extract binutils
+    if [ ! -f compiler/source/binutils.tar.gz ]; then
+        pushd compiler
+        wget -O source/binutils.tar.gz https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
+        mkdir binutils-source
+        tar -xvf source/binutils.tar.gz -C binutils-source --strip-components 1
+        popd
+    fi
+
+    # Build binutils
+    if [ ! -d compiler/binutils-build ]; then
+        mkdir compiler/binutils-build
+        pushd compiler/binutils-build
+        ../binutils-source/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+        make
+        make install
+        popd
+    fi
+
+    # Download and extract GCC
+    if [ ! -f compiler/source/gcc.tar.gz ]; then
+        pushd compiler
+        wget -O source/gcc.tar.gz https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-${GCC_VERSION}.tar.gz
+        mkdir gcc-source
+        tar -xvf source/gcc.tar.gz -C gcc-source --strip-components 1
+        popd
+    fi
+
+    # Build GCC
+    if [ ! -d compiler/gcc-build ]; then
+        mkdir compiler/gcc-build
+        pushd compiler/gcc-build
+        ../gcc-source/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
+        make all-gcc
+        make all-target-libgcc
+        make install-gcc
+        make install-target-libgcc
+        popd
+    fi
+
+    echo "Done setting up the local development environment"
 }
 
 function clean_project ()
